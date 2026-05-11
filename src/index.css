@@ -1,0 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-sapphire-black: #050505;
+  --color-sapphire-card: #0c0c0c;
+  --color-sapphire-border: #1a1a1a;
+  --color-sapphire-accent: #ffffff;
+}
+
+@layer base {
+  body {
+    @apply bg-sapphire-black text-white antialiased selection:bg-white selection:text-black;
+  }
+}
+
+.glass-card {
+  @apply bg-sapphire-card border border-sapphire-border rounded-xl backdrop-blur-sm;
+}
+
+.gradient-text {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500;
+}
