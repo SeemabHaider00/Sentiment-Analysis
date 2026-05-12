@@ -1,5 +1,6 @@
 import { SentimentResult } from "../types";
 import { pipeline, env } from '@xenova/transformers';
+import { applyLearnedOverrides } from "./learningService";
 
 // Optional: Configure transformers for browser usage
 env.allowLocalModels = false;
@@ -81,6 +82,15 @@ function applyHybridRules(originalText: string, aiResult: any): any {
   let { sentiment, confidence, keywords, intensity } = aiResult;
   const cleanText = preprocessText(originalText);
   
+  // First check AI Memory / Learning System overrides
+  const overrideMatch = applyLearnedOverrides(originalText, sentiment, confidence);
+  if (overrideMatch.overridden) {
+    sentiment = overrideMatch.sentiment;
+    confidence = overrideMatch.confidence;
+    // We can skip the rest of the hybrid rules if we have a direct human override, 
+    // or just let it adjust keywords. We'll skip sentiment modification.
+  }
+  
   // Rule Evaluation
   let posScore = 0;
   let negScore = 0;
@@ -109,38 +119,39 @@ function applyHybridRules(originalText: string, aiResult: any): any {
   });
 
   // Decide sentiment based on weighted scoring with AI result as a baseline
-  
-  // If AI classified as Positive but we see negative keywords...
-  if (sentiment === 'Positive' && negScore > posScore) {
-    sentiment = 'Negative';
-    confidence = Math.max(0.6, confidence - 0.2);
-  } else if (sentiment === 'Negative' && posScore > negScore) {
-    sentiment = 'Positive';
-    confidence = Math.max(0.6, confidence - 0.2);
-  }
-  
-  // Override neutral explicitly based on user requests (if confidence low or strong keywords present)
-  if (sentiment === 'Neutral' || confidence < 0.80) {
-    if (posScore > negScore && posScore >= 1) {
-      sentiment = 'Positive';
-      confidence = Math.max(confidence, 0.75 + (posScore * 0.05));
-      intensity = posScore >= 2 ? 'High' : 'Medium';
-      keywords = foundPos.slice(0, 3);
-    } else if (negScore > posScore && negScore >= 1) {
+  if (!overrideMatch.overridden) {
+    // If AI classified as Positive but we see negative keywords...
+    if (sentiment === 'Positive' && negScore > posScore) {
       sentiment = 'Negative';
-      confidence = Math.max(confidence, 0.75 + (negScore * 0.05));
-      intensity = negScore >= 2 ? 'High' : 'Medium';
-      keywords = foundNeg.slice(0, 3);
-    } else if (neuScore >= 1 && posScore === 0 && negScore === 0) {
-       sentiment = 'Neutral';
-       confidence = 0.85;
-       intensity = 'Low';
-    } else if (confidence === 0) {
-       // Manual rule engine if everything failed
-       sentiment = 'Neutral';
-       confidence = 0.5;
-       intensity = 'Low';
-       keywords = [];
+      confidence = Math.max(0.6, confidence - 0.2);
+    } else if (sentiment === 'Negative' && posScore > negScore) {
+      sentiment = 'Positive';
+      confidence = Math.max(0.6, confidence - 0.2);
+    }
+    
+    // Override neutral explicitly based on user requests (if confidence low or strong keywords present)
+    if (sentiment === 'Neutral' || confidence < 0.80) {
+      if (posScore > negScore && posScore >= 1) {
+        sentiment = 'Positive';
+        confidence = Math.max(confidence, 0.75 + (posScore * 0.05));
+        intensity = posScore >= 2 ? 'High' : 'Medium';
+        keywords = foundPos.slice(0, 3);
+      } else if (negScore > posScore && negScore >= 1) {
+        sentiment = 'Negative';
+        confidence = Math.max(confidence, 0.75 + (negScore * 0.05));
+        intensity = negScore >= 2 ? 'High' : 'Medium';
+        keywords = foundNeg.slice(0, 3);
+      } else if (neuScore >= 1 && posScore === 0 && negScore === 0) {
+         sentiment = 'Neutral';
+         confidence = 0.85;
+         intensity = 'Low';
+      } else if (confidence === 0) {
+         // Manual rule engine if everything failed
+         sentiment = 'Neutral';
+         confidence = 0.5;
+         intensity = 'Low';
+         keywords = [];
+      }
     }
   }
 
@@ -209,6 +220,7 @@ export async function analyzeReviews(
         const finalizedResult = applyHybridRules(text, aiResult);
 
         results.push({
+          id: Math.random().toString(36).substring(2, 11),
           text,
           ...finalizedResult
         });

@@ -43,6 +43,15 @@ export default function App() {
     setAnalysisProgress(0);
   };
 
+  const handleCorrection = (id: string, newSentiment: 'Positive' | 'Negative' | 'Neutral') => {
+    setAnalysisResults(prev => {
+      if (!prev) return prev;
+      return prev.map(item => 
+        item.id === id ? { ...item, sentiment: newSentiment } : item
+      );
+    });
+  };
+
   return (
     <div className="min-h-screen font-sans">
       <div className="max-w-7xl mx-auto px-6 pt-12 md:pt-24 lg:pt-32">
@@ -119,7 +128,7 @@ export default function App() {
               exit={{ opacity: 0 }}
               className="w-full"
             >
-              <Dashboard data={analysisResults} onReset={handleReset} />
+              <Dashboard data={analysisResults} onReset={handleReset} onCorrect={handleCorrection} />
             </motion.div>
           )}
         </AnimatePresence>

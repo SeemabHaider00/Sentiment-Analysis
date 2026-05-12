@@ -1,4 +1,5 @@
 export interface SentimentResult {
+  id?: string;
   text: string;
   sentiment: 'Positive' | 'Negative' | 'Neutral';
   confidence: number;

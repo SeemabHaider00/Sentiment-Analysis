@@ -5,16 +5,18 @@ import {
 } from 'recharts';
 import { 
   Download, ArrowLeft, Filter, TrendingUp, TrendingDown, Minus, 
-  Search, ShieldCheck, Zap
+  Search, ShieldCheck, Zap, BrainCircuit
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { SentimentResult, AnalysisSummary } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { ReviewModal } from './ReviewModal';
 
 interface DashboardProps {
   data: SentimentResult[];
   onReset: () => void;
+  onCorrect: (id: string, newSentiment: 'Positive' | 'Negative' | 'Neutral') => void;
 }
 
 const COLORS = {
@@ -23,9 +25,10 @@ const COLORS = {
   Neutral: '#71717a'
 };
 
-export function Dashboard({ data, onReset }: DashboardProps) {
+export function Dashboard({ data, onReset, onCorrect }: DashboardProps) {
   const [filter, setFilter] = useState<'All' | 'Positive' | 'Negative' | 'Neutral'>('All');
   const [search, setSearch] = useState('');
+  const [reviewCategory, setReviewCategory] = useState<'Positive' | 'Negative' | 'Neutral' | null>(null);
 
   const summary = useMemo<AnalysisSummary>(() => {
     const total = data.length;
@@ -36,6 +39,7 @@ export function Dashboard({ data, onReset }: DashboardProps) {
 
     return { total, positive, negative, neutral, averageConfidence };
   }, [data]);
+
 
   const chartData = [
     { name: 'Positive', value: summary.positive },
@@ -102,7 +106,7 @@ export function Dashboard({ data, onReset }: DashboardProps) {
           { label: 'Negative', value: summary.negative, icon: TrendingDown, color: 'text-red-400' },
           { label: 'Accuracy Score', value: `${(summary.averageConfidence * 100).toFixed(0)}%`, icon: ShieldCheck, color: 'text-blue-400' }
         ].map((stat, i) => (
-          <div key={i} className="glass-card p-6">
+          <div key={i} className="glass-card p-6 border border-white/5 hover:border-white/10 transition-colors">
             <div className="flex justify-between items-start mb-4">
               <div className="p-2 rounded-lg bg-white/5">
                 <stat.icon className={cn("w-5 h-5", stat.color)} />
@@ -113,6 +117,42 @@ export function Dashboard({ data, onReset }: DashboardProps) {
             <div className="text-sm text-gray-500 font-sans">{stat.label}</div>
           </div>
         ))}
+      </div>
+
+      {/* Human Review & AI Learning Interface */}
+      <div className="glass-card p-6 border border-indigo-500/20 bg-indigo-500/5 my-8">
+        <div className="flex items-center gap-3 mb-6">
+          <BrainCircuit className="w-6 h-6 text-indigo-400" />
+          <div>
+            <h3 className="text-lg font-medium text-white">Human Review & AI Learning</h3>
+            <p className="text-sm text-indigo-200/60">Correct predictions to instantly train the local AI engine.</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <button 
+            onClick={() => setReviewCategory('Positive')}
+            className="flex items-center justify-between p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all text-emerald-400"
+          >
+            <span className="font-medium text-sm">Review Positive Data</span>
+            <span className="text-xs font-mono bg-emerald-500/20 px-2 py-1 rounded">{summary.positive}</span>
+          </button>
+          
+          <button 
+            onClick={() => setReviewCategory('Negative')}
+            className="flex items-center justify-between p-4 rounded-xl border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 transition-all text-red-400"
+          >
+            <span className="font-medium text-sm">Review Negative Data</span>
+            <span className="text-xs font-mono bg-red-500/20 px-2 py-1 rounded">{summary.negative}</span>
+          </button>
+
+          <button 
+            onClick={() => setReviewCategory('Neutral')}
+            className="flex items-center justify-between p-4 rounded-xl border border-zinc-500/20 bg-zinc-500/10 hover:bg-zinc-500/20 transition-all text-zinc-400"
+          >
+            <span className="font-medium text-sm">Review Neutral Data</span>
+            <span className="text-xs font-mono bg-zinc-500/20 px-2 py-1 rounded">{summary.neutral}</span>
+          </button>
+        </div>
       </div>
 
       {/* Charts Section */}
@@ -259,6 +299,16 @@ export function Dashboard({ data, onReset }: DashboardProps) {
           )}
         </div>
       </div>
+
+      <ReviewModal 
+        isOpen={reviewCategory !== null}
+        onClose={() => setReviewCategory(null)}
+        category={reviewCategory}
+        data={data}
+        onCorrect={(id, newSent) => {
+          onCorrect(id, newSent);
+        }}
+      />
     </motion.div>
   );
 }
