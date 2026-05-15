@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { Dashboard } from './components/Dashboard';
-import { LoadingScreen } from './components/LoadingScreen';
+import { ProcessingLoader } from './components/ProcessingLoader';
 import { analyzeReviews } from './services/aiService';
 import { SentimentResult } from './types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -43,11 +43,11 @@ export default function App() {
     setAnalysisProgress(0);
   };
 
-  const handleCorrection = (id: string, newSentiment: 'Positive' | 'Negative' | 'Neutral') => {
+  const handleCorrection = (id: string, updates: Partial<SentimentResult>) => {
     setAnalysisResults(prev => {
       if (!prev) return prev;
       return prev.map(item => 
-        item.id === id ? { ...item, sentiment: newSentiment } : item
+        item.id === id ? { ...item, ...updates } : item
       );
     });
   };
@@ -64,7 +64,7 @@ export default function App() {
               exit={{ opacity: 0 }}
               className="w-full"
             >
-              <LoadingScreen realProgress={analysisProgress} />
+              <ProcessingLoader progress={analysisProgress} total={reviews.length} />
             </motion.div>
           ) : !analysisResults ? (
             <motion.div

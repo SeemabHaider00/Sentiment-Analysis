@@ -2,6 +2,7 @@ export interface SentimentResult {
   id?: string;
   text: string;
   sentiment: 'Positive' | 'Negative' | 'Neutral';
+  coreReason: string;
   confidence: number;
   keywords: string[];
   intensity: 'High' | 'Medium' | 'Low';

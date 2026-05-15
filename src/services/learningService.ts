@@ -2,9 +2,10 @@ export interface LearnedRule {
   textSnippet: string;
   correctedSentiment: 'Positive' | 'Negative' | 'Neutral';
   correctionCount: number;
+  weight: number;
 }
 
-const STORAGE_KEY = 'sentiment_learned_rules';
+const STORAGE_KEY = 'sentiment_learned_rules_v2'; // Changed key to ensure clean slate for improved schema
 
 export function getLearnedRules(): LearnedRule[] {
   try {
@@ -28,23 +29,27 @@ export function saveLearnedRules(rules: LearnedRule[]) {
 
 export function addCorrection(text: string, newSentiment: 'Positive' | 'Negative' | 'Neutral') {
   const rules = getLearnedRules();
-  // Here we assume exact match for simplicity.
-  // In a more robust system we would extract N-grams or keywords.
   const lowerText = text.toLowerCase().trim();
+  
+  // Extract key negative or positive phrases (heuristic)
+  // For now we persist the whole text as a "pattern"
   const existing = rules.find(r => r.textSnippet === lowerText);
 
   if (existing) {
     if (existing.correctedSentiment === newSentiment) {
       existing.correctionCount += 1;
+      existing.weight = Math.min(existing.weight + 0.1, 1.0);
     } else {
       existing.correctedSentiment = newSentiment;
       existing.correctionCount = 1;
+      existing.weight = 0.5;
     }
   } else {
     rules.push({
       textSnippet: lowerText,
       correctedSentiment: newSentiment,
       correctionCount: 1,
+      weight: 0.5
     });
   }
 
@@ -55,28 +60,42 @@ export function applyLearnedOverrides(text: string, currentSentiment: string, co
   const rules = getLearnedRules();
   const lowerText = text.toLowerCase().trim();
   
-  // Exact match override
+  // 1. Exact match override
   const exactMatch = rules.find(r => r.textSnippet === lowerText);
   if (exactMatch) {
     return {
       sentiment: exactMatch.correctedSentiment,
-      confidence: 0.99, // High confidence because human overrode it
+      confidence: 0.99, 
       overridden: true
     };
   }
 
-  // Substring match override if it has been corrected multiple times
-  // We can look for longer text snippets that appear inside the current text
-  const robustRules = rules.filter(r => r.textSnippet.length > 5 && r.correctionCount > 0);
-  for (const rule of robustRules) {
+  // 2. Substring pattern match
+  // We prioritize rules with higher correction counts and weights
+  const sortedRules = rules
+    .filter(r => r.textSnippet.length > 3)
+    .sort((a, b) => (b.correctionCount * b.weight) - (a.correctionCount * a.weight));
+
+  for (const rule of sortedRules) {
     if (lowerText.includes(rule.textSnippet)) {
+      // If it's a short snippet, it might be a powerful keyword the user taught us
+      const boost = 0.2 * rule.weight;
       return {
         sentiment: rule.correctedSentiment,
-        confidence: Math.min(confidence + 0.1, 0.95),
+        confidence: Math.min(confidence + boost, 0.98),
         overridden: true
       };
     }
   }
 
   return { sentiment: currentSentiment, confidence, overridden: false };
+}
+
+export function getSnippetStats(text: string): { correctionCount: number } {
+  const rules = getLearnedRules();
+  const lowerText = text.toLowerCase().trim();
+  const rule = rules.find(r => r.textSnippet === lowerText);
+  return {
+    correctionCount: rule ? rule.correctionCount : 0
+  };
 }
